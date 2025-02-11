@@ -170,3 +170,4 @@ kable(head(rest_inspector_scores, 200), caption = "Inspectors by Average Score")
 
 #5) Again, sample size where it's less than 5 could yield extreme results where it can skew the overall data
 ```
+# git repo link: https://github.com/kabob-original/plan372hw2
