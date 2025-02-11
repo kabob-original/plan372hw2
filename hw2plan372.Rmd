@@ -1,0 +1,172 @@
+---
+title: "HW2"
+author: "Karthik Bobba"
+date: "2025-02-11"
+output: html_document
+---
+
+```{r loading libraries and data}
+library(tidyverse)
+library(lubridate)
+library(kableExtra)
+#loading neccessary libraries
+
+inspections <- read_csv("restaurant_inspections.csv") #loading data set into a df called inspections
+
+inspections <- inspections %>%
+  mutate(
+    # Convert date columns to proper datetime format
+    DATE_ = ymd_hms(DATE_),
+    RESTAURANTOPENDATE = ymd_hms(RESTAURANTOPENDATE),
+    
+    # Standardize city names for question 3
+    CITY = str_to_upper(CITY) %>% 
+      recode("RTP" = "RESEARCH TRIANGLE PARK",
+             "CARY" = "CARY",
+             "Apex" = "APEX",
+             "RALEIGH" = "RALEIGH",
+             "FUQUAY-VARINA" = "FUQUAY VARINA",
+             "HOLLY SPRING" = "HOLLY SPRINGS",
+             "MORRISVILE" = "MORRISVILLE",
+              ) 
+  )
+```
+
+# 1) Histogram
+
+```{r histogram}
+ggplot(inspections, aes(SCORE)) +
+  geom_histogram(binwidth = 2, fill = "blue", color = "white") +
+  labs(title = "Distribution of Inspection Scores",
+       x = "Score", y = "Count")
+
+#essentially creating a histogram with score as the x axis and count as the y axis, showing the distribution of scores
+```
+
+# 2) Trend for New vs Old Facility
+
+We don't really see any trend visually
+
+```{r old vs new}
+inspections %>%
+  mutate(restaurant_age = time_length(DATE_ - RESTAURANTOPENDATE, "years")) %>% #Essentially what is happening here is calculating how long it's been since they've opened, using the time_length function
+  ggplot(aes(restaurant_age, SCORE)) +
+  geom_point(alpha = 0.5) +       # Add transparency for overlapping points
+  labs(title = "Inspection Scores by Restaurant Age",
+       x = "Years Since Opening", y = "Score")
+#We don't really see any trend visually
+```
+
+# 3) Vary by City?
+
+Average score seems to have very minimal variation between cities
+
+```{r by city}
+city_scores <- inspections %>%
+  group_by(CITY) %>%
+  summarise(
+    avg_score = mean(SCORE, na.rm = TRUE),
+    n_inspections = n(),  # Count number of inspections per city
+    .groups = "drop"
+  )
+
+# Create formatted table with kableExtra
+kable(city_scores, caption = "Average Scores by City") %>%
+  kable_styling()
+
+#Average score seems to have very minimal variation between cities
+```
+
+# 4) Inspector Ratings
+
+Average score does seem to have some variation depending on the inpsector
+
+```{r inspectors}
+# Calculate inspector performance metrics
+inspector_scores <- inspections %>%
+  group_by(INSPECTOR) %>%
+  summarise(
+    avg_score = mean(SCORE, na.rm = TRUE),
+    n_inspections = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(avg_score))  # arranging by highest avg score
+#Essentially finding highest avg scores by inspector
+kable(head(inspector_scores, 200), caption = "Inspectors by Average Score") %>%
+  kable_styling()
+
+
+```
+
+# 5) Small Samples Sizes?
+
+Yes, in both the inspectors and the city tables we see instances where the sample size is less than 5, as you can see in the n_inspections column, which could lead to possible extreme values, skewing the data.
+
+# 6) Restaurants vs Other
+
+As we see in the table, the scores for restaurant (where is_restaurant is TRUE) is slightly less than for non-restaurants
+
+```{r resaurants vs other}
+inspections %>%
+  mutate(is_restaurant = FACILITYTYPE == "Restaurant") %>%
+  group_by(is_restaurant) %>%
+  summarise(
+    avg_score = mean(SCORE, na.rm = TRUE),
+    n = n(),  # Total inspections in each group
+    .groups = "drop"
+  ) %>%
+  kable(caption = "Scores by Facility Type") %>%
+  kable_styling()
+```
+
+# 7) Restaurant Specific Analysis
+
+Here we will be redoing all the prior analysis' but with a df that contains only restaurants
+
+```{r specific analysis}
+rest_only <- inspections %>%
+  filter(FACILITYTYPE == "Restaurant") #Creates a df with only restaurants
+
+#histogram
+ggplot(rest_only, aes(SCORE)) +
+  geom_histogram(binwidth = 2, fill = "blue", color = "white") +
+  labs(title = "Distribution of Inspection Scores",
+       x = "Score", y = "Count")
+
+#new vs old
+rest_only %>%
+  mutate(restaurant_age = time_length(DATE_ - RESTAURANTOPENDATE, "years")) %>% #Essentially what is happening here is calculating how long it's been since they've opened, using the time_length function
+  ggplot(aes(restaurant_age, SCORE)) +
+  geom_point(alpha = 0.5) +       # Add transparency for overlapping points
+  labs(title = "Inspection Scores by Restaurant Age",
+       x = "Years Since Opening", y = "Score")
+
+#by city
+rest_city_scores <- rest_only %>%
+  group_by(CITY) %>%
+  summarise(
+    avg_score = mean(SCORE, na.rm = TRUE),
+    n_inspections = n(),  # Count number of inspections per city
+    .groups = "drop"
+  )
+
+# Create formatted table with kableExtra
+kable(rest_city_scores, caption = "Average Scores by City") %>%
+  kable_styling()
+
+#inspectors
+# Calculate inspector performance metrics
+rest_inspector_scores <- rest_only %>%
+  group_by(INSPECTOR) %>%
+  summarise(
+    avg_score = mean(SCORE, na.rm = TRUE),
+    n_inspections = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(avg_score))  # arranging by highest avg score
+#Essentially finding highest avg scores by inspector
+kable(head(rest_inspector_scores, 200), caption = "Inspectors by Average Score") %>%
+  kable_styling()
+
+#5) Again, sample size where it's less than 5 could yield extreme results where it can skew the overall data
+```
